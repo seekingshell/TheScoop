@@ -2,7 +2,9 @@
 let database = {
   users: {},
   articles: {},
-  nextArticleId: 1
+  comments: {},
+  nextArticleId: 1,
+  nextCommentId: 1
 };
 
 const routes = {
@@ -26,6 +28,9 @@ const routes = {
   },
   '/articles/:id/downvote': {
     'PUT': downvoteArticle
+  },
+  '/comments': {
+    'POST': createComment
   }
 };
 
@@ -240,7 +245,30 @@ function downvote(item, username) {
   return item;
 }
 
-// Write all code above this line.
+/* Comments */
+function createComment(url, request) {
+  debugger;
+  const reqComment = request.body.comment;
+  let response={};
+  if(reqComment.body && reqComment.username && reqComment.articleId) {
+    const comment={
+      id: database.nextCommentId++,
+      body: reqComment.body,
+      username: reqComment.username,
+      articleId: reqComment.articleId,
+      upvotedBy: [],
+      downvotedBy: []
+    };
+    database.comments[comment.id]=comment;
+    response.body={comment: comment};
+    response.status=201;
+  } else {
+    // Bad Request
+    response.status=400;
+  }
+
+  return reponse;
+}
 
 const http = require('http');
 const url = require('url');

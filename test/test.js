@@ -85,6 +85,7 @@ describe('Scoop - server.js: ', function() {
       };
       routes['/comments']['POST']('/comments', {body: {comment: newComment}});
 
+      debugger;
       expect(database.comments[originalNextCommentId]).to.exist;
       expect(database.comments[originalNextCommentId]).to.be.an('object');
       expect(database.comments[originalNextCommentId].id).to.equal(originalNextCommentId);
@@ -383,7 +384,7 @@ describe('Scoop - server.js: ', function() {
 
   });
 
-  describe('/commnets/:id/upvote PUT', function() {
+  describe('/comments/:id/upvote PUT', function() {
 
     beforeEach(function() {
       database.users['user'] = {
