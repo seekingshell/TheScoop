@@ -85,7 +85,6 @@ describe('Scoop - server.js: ', function() {
       };
       routes['/comments']['POST']('/comments', {body: {comment: newComment}});
 
-      debugger;
       expect(database.comments[originalNextCommentId]).to.exist;
       expect(database.comments[originalNextCommentId]).to.be.an('object');
       expect(database.comments[originalNextCommentId].id).to.equal(originalNextCommentId);
@@ -353,7 +352,7 @@ describe('Scoop - server.js: ', function() {
     it('routes[\'/comments/:id\'].DELETE should delete an existing comment', function() {
       routes['/comments/:id']['DELETE']('/comments/1');
 
-      expect(database.comments[1]).to.equal(null);
+      expect(database.comments[1]).to.equal(undefined);
     });
 
     it('routes[\'/comments/:id\'].DELETE should remove a deleted comment ID from the author\'s comment IDs', function() {
@@ -412,6 +411,7 @@ describe('Scoop - server.js: ', function() {
     });
 
     it('routes[\'/comments/:id/upvote\'].PUT should upvote an comment', function() {
+      debugger;
       routes['/comments/:id/upvote']['PUT']('/comments/1/upvote', {body: {username: 'other_user'}});
 
       expect(database.comments[1].upvotedBy).to.contain('user');

@@ -1,3 +1,6 @@
+yaml = require('js-yaml');
+fs   = require('fs');
+
 // database is let instead of const to allow us to modify it in test.js
 let database = {
   users: {},
@@ -6,6 +9,7 @@ let database = {
   nextArticleId: 1,
   nextCommentId: 1
 };
+const databaseFile='./database.yml';
 
 const routes = {
   '/users': {
@@ -31,6 +35,16 @@ const routes = {
   },
   '/comments': {
     'POST': createComment
+  },
+  '/comments/:id': {
+    'PUT': updateComment,
+    'DELETE': deleteComment
+  },
+  '/comments/:id/upvote': {
+    'PUT': upvoteComment
+  },
+  '/comments/:id/downvote': {
+    'PUT': downvoteComment
   }
 };
 
@@ -246,11 +260,13 @@ function downvote(item, username) {
 }
 
 /* Comments */
+/* POST */
 function createComment(url, request) {
-  debugger;
-  const reqComment = request.body.comment;
+  const reqComment = request.body && request.body.comment;
   let response={};
-  if(reqComment.body && reqComment.username && reqComment.articleId) {
+  if((reqComment && reqComment.body && reqComment.username && reqComment.articleId) &&
+      database.users[reqComment.username] &&
+      database.articles[reqComment.articleId]) {
     const comment={
       id: database.nextCommentId++,
       body: reqComment.body,
@@ -260,6 +276,8 @@ function createComment(url, request) {
       downvotedBy: []
     };
     database.comments[comment.id]=comment;
+    database.articles[comment.articleId].commentIds.push(comment.id);
+    database.users[comment.username].commentIds.push(comment.id);
     response.body={comment: comment};
     response.status=201;
   } else {
@@ -267,7 +285,127 @@ function createComment(url, request) {
     response.status=400;
   }
 
-  return reponse;
+  return response;
+}
+
+/* PUT */
+function updateComment(url, request) {
+  const commentId = Number(url.split('/').pop());
+  const reqComment = request.body && request.body.comment;
+  let response={};
+  if(database.comments[commentId]) {
+    if(reqComment && reqComment.body && commentId===reqComment.id) {
+      let comment = database.comments[commentId];
+      comment.body=reqComment.body;
+      database.comments[comment.id]=comment;
+      response.body={comment: comment};
+      response.status=200;
+    } else {
+      // Bad Request
+      response.status=400;
+    }
+  } else {
+    // Resource Not Found
+    response.status=404;
+  }
+  return response;
+}
+
+/* DELETE */
+function deleteComment(url, request) {
+  const commentId = Number(url.split('/').pop());
+  let response={};
+  const comment = database.comments[commentId];
+  if(comment) {
+    const articleCommentIds = database.articles[comment.articleId].commentIds;
+    articleCommentIds.splice(articleCommentIds.indexOf(commentId), 1);
+    const userCommentIds=database.users[comment.username].commentIds;
+    userCommentIds.splice(userCommentIds.indexOf(commentId), 1);
+    delete database.comments[commentId];
+    response.status=204;
+  } else {
+    // Resource Not Found
+    response.status=404;
+  }
+  return response;
+}
+
+/* PUT */
+function upvoteComment(url, request) {
+  debugger;
+  const commentId = Number(url.split('/').filter(segment=>segment)[1]);
+  const reqUsername = request.body && request.body.username;
+  let dbComment = database.comments[commentId];
+  let response={};
+  if(dbComment && reqUsername && database.users[reqUsername]) {
+    let userIndex = dbComment.upvotedBy.indexOf(reqUsername);
+    if(userIndex < 0) {
+      // user has not upvoted this comment yet
+      dbComment.upvotedBy.push(reqUsername);
+      response.status=200;
+      response.body={comment: dbComment};
+    }
+    // check to see if user has downvoted this comment before
+    userIndex = dbComment.downvotedBy.indexOf(reqUsername);
+    if(userIndex >= 0) {
+      // remove it
+      dbComment.downvotedBy.splice(userIndex, 1);
+    }
+  } else {
+    // Bad Request
+    response.status=400;
+  }
+
+  return response;
+}
+
+/* PUT */
+function downvoteComment(url, request) {
+  debugger;
+  const commentId = Number(url.split('/').filter(segment=>segment)[1]);
+  const reqUsername = request.body && request.body.username;
+  let dbComment = database.comments[commentId];
+  let response={};
+  if(dbComment && reqUsername && database.users[reqUsername]) {
+    let userIndex = dbComment.downvotedBy.indexOf(reqUsername);
+    if(userIndex < 0) {
+      // user has not downvoted this comment yet
+      dbComment.downvotedBy.push(reqUsername);
+      response.status=200;
+      response.body={comment: dbComment};
+    }
+    // check to see if user has upvoted this comment before
+    userIndex = dbComment.upvotedBy.indexOf(reqUsername);
+    if(userIndex >= 0) {
+      // remove it
+      dbComment.upvotedBy.splice(userIndex, 1);
+    }
+  } else {
+    // Bad Request
+    response.status=400;
+  }
+
+  return response;
+}
+
+/* Persistent storage of database helper functions */
+function loadDatabase() {
+  // Get document, or throw exception on error
+  if(fs.existsSync(databaseFile)) {
+    try {
+      database = yaml.safeLoad(fs.readFileSync(databaseFile, 'utf8'));
+    } catch (e) {
+      console.log(e);
+    }
+  }
+}
+
+function saveDatabase() {
+  try {
+    fs.writeFileSync(databaseFile,yaml.safeDump(database));
+  } catch (e) {
+    console.log(e);
+  }
 }
 
 const http = require('http');
